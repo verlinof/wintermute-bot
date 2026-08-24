@@ -13,7 +13,7 @@ class Entity:
 
 def load_wallets(path: str = "wallets.json") -> list:
     """Load wallet entities from a JSON file."""
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8-sig") as f:
         data = json.load(f)
     entities = []
     for entry in data.get("entities", []):
