@@ -5,10 +5,10 @@ from dataclasses import dataclass
 @dataclass
 class Entity:
     label: str
-    addresses: dict  # chain_id -> list[str]
+    addresses: list  # list of strings now
 
-    def get_addresses(self, chain_id: str) -> list:
-        return [addr.lower() for addr in self.addresses.get(chain_id, [])]
+    def get_addresses(self) -> list:
+        return [addr.lower() for addr in self.addresses]
 
 
 def load_wallets(path: str = "wallets.json") -> list:
@@ -19,6 +19,6 @@ def load_wallets(path: str = "wallets.json") -> list:
     for entry in data.get("entities", []):
         entities.append(Entity(
             label=entry["label"],
-            addresses=entry.get("addresses", {}),
+            addresses=entry.get("addresses", []),
         ))
     return entities

@@ -21,8 +21,8 @@ def _make_config(**kwargs):
     return Config(**defaults)
 
 
-def _make_entity(chain_id: str, addresses: list) -> Entity:
-    return Entity(label="TestEntity", addresses={chain_id: addresses})
+def _make_entity(addresses: list) -> Entity:
+    return Entity(label="TestEntity", addresses=addresses)
 
 
 def _make_transfer(**kwargs) -> TokenTransfer:
@@ -44,7 +44,7 @@ def _make_transfer(**kwargs) -> TokenTransfer:
 def test_poll_chain_sends_alert_for_large_altcoin(tmp_path):
     cfg = _make_config()
     chain = next(c for c in CHAINS if c.id == "ethereum")
-    entity = _make_entity("ethereum", ["0xfrom"])
+    entity = _make_entity(["0xfrom"])
     store = DedupStore(db_path=str(tmp_path / "test.db"))
     monitor = Monitor(cfg, [entity], store)
     transfer = _make_transfer()
@@ -62,7 +62,7 @@ def test_poll_chain_sends_alert_for_large_altcoin(tmp_path):
 def test_poll_chain_skips_stablecoin(tmp_path):
     cfg = _make_config()
     chain = next(c for c in CHAINS if c.id == "ethereum")
-    entity = _make_entity("ethereum", ["0xfrom"])
+    entity = _make_entity(["0xfrom"])
     store = DedupStore(db_path=str(tmp_path / "test.db"))
     monitor = Monitor(cfg, [entity], store)
     transfer = _make_transfer(token_symbol="USDC")
@@ -79,7 +79,7 @@ def test_poll_chain_skips_stablecoin(tmp_path):
 def test_poll_chain_skips_below_threshold(tmp_path):
     cfg = _make_config(usd_threshold=100000.0)
     chain = next(c for c in CHAINS if c.id == "ethereum")
-    entity = _make_entity("ethereum", ["0xfrom"])
+    entity = _make_entity(["0xfrom"])
     store = DedupStore(db_path=str(tmp_path / "test.db"))
     monitor = Monitor(cfg, [entity], store)
     transfer = _make_transfer()  # 1000 UNI
@@ -98,7 +98,7 @@ def test_poll_chain_skips_below_threshold(tmp_path):
 def test_poll_chain_major_token_threshold(tmp_path):
     cfg = _make_config(usd_threshold=100000.0)
     chain = next(c for c in CHAINS if c.id == "ethereum")
-    entity = _make_entity("ethereum", ["0xfrom"])
+    entity = _make_entity(["0xfrom"])
     store = DedupStore(db_path=str(tmp_path / "test.db"))
     monitor = Monitor(cfg, [entity], store)
     
@@ -121,7 +121,7 @@ def test_poll_chain_major_token_threshold(tmp_path):
 def test_poll_chain_deduplicates(tmp_path):
     cfg = _make_config()
     chain = next(c for c in CHAINS if c.id == "ethereum")
-    entity = _make_entity("ethereum", ["0xfrom"])
+    entity = _make_entity(["0xfrom"])
     store = DedupStore(db_path=str(tmp_path / "test.db"))
     monitor = Monitor(cfg, [entity], store)
     transfer = _make_transfer()

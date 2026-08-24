@@ -24,7 +24,7 @@ class Monitor:
         alerts_sent = 0
 
         for entity in self.entities:
-            addresses = entity.get_addresses(chain.id)
+            addresses = entity.get_addresses()
             for address in addresses:
                 transfers = fetch_token_transfers(chain, address, api_key)
                 time.sleep(0.25)

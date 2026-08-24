@@ -1,28 +1,18 @@
 ﻿{
-  "_comment": "Add any wallet entity you want to monitor. Each entity has a label and a list of addresses per chain. IMPORTANT: Replace placeholder addresses below with real wallet addresses!",
+  "_comment": "Add any EVM wallet address. The bot will automatically check these addresses across all supported chains.",
   "entities": [
     {
       "label": "Wintermute",
-      "addresses": {
-        "ethereum": [
-          "0x0000000000000000000000000000000000000001"
-        ],
-        "arbitrum": [
-          "0x0000000000000000000000000000000000000002"
-        ],
-        "bsc": [
-          "0x0000000000000000000000000000000000000003"
-        ],
-        "optimism": [
-          "0x0000000000000000000000000000000000000004"
-        ],
-        "polygon": [
-          "0x0000000000000000000000000000000000000005"
-        ],
-        "base": [
-          "0x0000000000000000000000000000000000000006"
-        ]
-      }
+      "addresses": [
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000002"
+      ]
+    },
+    {
+      "label": "Binance Hot Wallet",
+      "addresses": [
+        "0x28C6c06298d514Db089934071355E5743bf21d60"
+      ]
     }
   ]
 }
