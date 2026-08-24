@@ -1,0 +1,21 @@
+services:
+  wintermute-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wintermute-monitor
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # wallets.json bisa diedit dari host tanpa rebuild image
+      - ./wallets.json:/app/wallets.json:ro
+      # SQLite db (dedup alert) persist di luar container
+      - ./data:/app/data
+      # opsional: kalau mau lihat/ubah source code tanpa rebuild saat dev
+      # - ./bot.py:/app/bot.py:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

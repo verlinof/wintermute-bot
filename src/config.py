@@ -33,7 +33,6 @@ def load_config() -> "Config":
             "arbitrum":  etherscan_key,
             "bsc":       etherscan_key,
             "optimism":  etherscan_key,
-            "polygon":   etherscan_key,
             "base":      etherscan_key,
         },
     )

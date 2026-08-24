@@ -2,17 +2,16 @@
   "_comment": "Add any EVM wallet address. The bot will automatically check these addresses across all supported chains.",
   "entities": [
     {
-      "label": "Wintermute",
-      "addresses": [
-        "0x0000000000000000000000000000000000000001",
-        "0x0000000000000000000000000000000000000002"
-      ]
+      "label": "Binance Cold Wallet: Wintermute Penting",
+      "addresses": ["0xF977814e90dA44bFA03b6295A0616a897441aceC"]
     },
     {
-      "label": "Binance Hot Wallet",
-      "addresses": [
-        "0x28C6c06298d514Db089934071355E5743bf21d60"
-      ]
+      "label": "Binance Cold Wallet: Wintermute 2",
+      "addresses": ["0x5a52E96BAcdaBb82fd05763E25335261B270Efcb"]
+    },
+    {
+      "label": "Binance Cold Wallet: Wintermute 1",
+      "addresses": ["0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"]
     }
   ]
 }
