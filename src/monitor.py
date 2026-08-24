@@ -4,7 +4,7 @@ from src.config import Config
 from src.wallets import Entity
 from src.chains import Chain, CHAINS
 from src.explorer import fetch_token_transfers, compute_amount
-from src.filters import is_skip_token, meets_threshold
+from src.filters import is_skip_token, meets_threshold, get_required_threshold
 from src.price import get_usd_price
 from src.dedup import DedupStore
 from src.notifier import send_alert
@@ -45,7 +45,9 @@ class Monitor:
                         continue
 
                     usd_value = amount * usd_price
-                    if not meets_threshold(usd_value, self.config.usd_threshold):
+                    required_threshold = get_required_threshold(tx.token_symbol, self.config.usd_threshold)
+                    
+                    if not meets_threshold(usd_value, required_threshold):
                         self.dedup.mark_seen(tx.tx_hash)
                         continue
 

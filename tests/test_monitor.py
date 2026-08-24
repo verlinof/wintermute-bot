@@ -95,6 +95,29 @@ def test_poll_chain_skips_below_threshold(tmp_path):
     mock_alert.assert_not_called()
 
 
+def test_poll_chain_major_token_threshold(tmp_path):
+    cfg = _make_config(usd_threshold=100000.0)
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity("ethereum", ["0xfrom"])
+    store = DedupStore(db_path=str(tmp_path / "test.db"))
+    monitor = Monitor(cfg, [entity], store)
+    
+    # Below $1M threshold
+    transfer1 = _make_transfer(token_symbol="ETH", tx_hash="0xhash1")
+    # Above $1M threshold
+    transfer2 = _make_transfer(token_symbol="ETH", tx_hash="0xhash2", raw_value="3000000000000000000000") # 3000 ETH
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[transfer1, transfer2]), \
+         patch("src.monitor.get_usd_price", return_value=500.0), \
+         patch("src.monitor.send_alert") as mock_alert, \
+         patch("src.monitor.time.sleep"):
+        count = monitor.poll_chain(chain)
+
+    assert count == 1
+    mock_alert.assert_called_once()
+    assert mock_alert.call_args[1]["tx_hash"] == "0xhash2"
+
+
 def test_poll_chain_deduplicates(tmp_path):
     cfg = _make_config()
     chain = next(c for c in CHAINS if c.id == "ethereum")
@@ -111,4 +134,4 @@ def test_poll_chain_deduplicates(tmp_path):
         count2 = monitor.poll_chain(chain)
 
     assert count2 == 0
-    assert mock_alert.call_count == 1  # only once total
+    assert mock_alert.call_count == 1

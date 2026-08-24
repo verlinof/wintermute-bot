@@ -6,13 +6,19 @@
 
 ETH_SYMBOLS: frozenset = frozenset({"ETH", "WETH"})
 BTC_SYMBOLS: frozenset = frozenset({"BTC", "WBTC", "RENBTC", "TBTC"})
-
-SKIP_SYMBOLS: frozenset = STABLECOIN_SYMBOLS | ETH_SYMBOLS | BTC_SYMBOLS
+MAJOR_SYMBOLS: frozenset = ETH_SYMBOLS | BTC_SYMBOLS
 
 
 def is_skip_token(symbol: str) -> bool:
-    """Return True if this token should be filtered out (stablecoin/ETH/BTC)."""
-    return symbol.upper() in SKIP_SYMBOLS
+    """Return True if this token should be filtered out completely (stablecoins)."""
+    return symbol.upper() in STABLECOIN_SYMBOLS
+
+
+def get_required_threshold(symbol: str, base_threshold: float) -> float:
+    """Return the USD threshold required for this token."""
+    if symbol.upper() in MAJOR_SYMBOLS:
+        return 1_000_000.0
+    return base_threshold
 
 
 def meets_threshold(usd_value: float, threshold: float) -> bool:
