@@ -10,12 +10,7 @@ def test_load_config_reads_env():
         "TELEGRAM_CHAT_ID": "123456",
         "USD_THRESHOLD": "50000",
         "POLL_INTERVAL": "120",
-        "ETHERSCAN_API_KEY": "ethkey",
-        "ARBISCAN_API_KEY": "arbkey",
-        "BSCSCAN_API_KEY": "bsckey",
-        "OPTIMISM_API_KEY": "optkey",
-        "POLYGONSCAN_API_KEY": "polykey",
-        "BASESCAN_API_KEY": "basekey",
+        "ETHERSCAN_API_KEY": "unified_key_123",
     }
     with patch.dict(os.environ, env, clear=True):
         import src.config
@@ -26,7 +21,9 @@ def test_load_config_reads_env():
     assert cfg.telegram_chat_id == "123456"
     assert cfg.usd_threshold == 50000.0
     assert cfg.poll_interval == 120
-    assert cfg.explorer_keys["ethereum"] == "ethkey"
+    assert cfg.explorer_keys["ethereum"] == "unified_key_123"
+    assert cfg.explorer_keys["bsc"] == "unified_key_123"
+    assert cfg.explorer_keys["arbitrum"] == "unified_key_123"
 
 
 def test_load_config_defaults():

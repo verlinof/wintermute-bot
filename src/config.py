@@ -20,6 +20,8 @@ def load_config() -> "Config":
     if not chat_id:
         raise ValueError("TELEGRAM_CHAT_ID is required")
 
+    etherscan_key = os.environ.get("ETHERSCAN_API_KEY", "")
+
     return Config(
         telegram_token=token,
         telegram_chat_id=chat_id,
@@ -27,11 +29,11 @@ def load_config() -> "Config":
         poll_interval=int(os.environ.get("POLL_INTERVAL", "180")),
         coingecko_api_key=os.environ.get("COINGECKO_API_KEY", ""),
         explorer_keys={
-            "ethereum":  os.environ.get("ETHERSCAN_API_KEY", ""),
-            "arbitrum":  os.environ.get("ARBISCAN_API_KEY", ""),
-            "bsc":       os.environ.get("BSCSCAN_API_KEY", ""),
-            "optimism":  os.environ.get("OPTIMISM_API_KEY", ""),
-            "polygon":   os.environ.get("POLYGONSCAN_API_KEY", ""),
-            "base":      os.environ.get("BASESCAN_API_KEY", ""),
+            "ethereum":  etherscan_key,
+            "arbitrum":  etherscan_key,
+            "bsc":       etherscan_key,
+            "optimism":  etherscan_key,
+            "polygon":   etherscan_key,
+            "base":      etherscan_key,
         },
     )
