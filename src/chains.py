@@ -35,12 +35,6 @@ CHAINS: list = [
         explorer_tx_url="https://optimistic.etherscan.io/tx/",
     ),
     Chain(
-        id="polygon",
-        name="Polygon",
-        explorer_base_url="https://api.polygonscan.com/api",
-        explorer_tx_url="https://polygonscan.com/tx/",
-    ),
-    Chain(
         id="base",
         name="Base",
         explorer_base_url="https://api.basescan.org/api",
