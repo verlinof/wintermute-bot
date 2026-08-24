@@ -1,0 +1,28 @@
+﻿{
+  "_comment": "Add any wallet entity you want to monitor. Each entity has a label and a list of addresses per chain. IMPORTANT: Replace placeholder addresses below with real wallet addresses!",
+  "entities": [
+    {
+      "label": "Wintermute",
+      "addresses": {
+        "ethereum": [
+          "0x0000000000000000000000000000000000000001"
+        ],
+        "arbitrum": [
+          "0x0000000000000000000000000000000000000002"
+        ],
+        "bsc": [
+          "0x0000000000000000000000000000000000000003"
+        ],
+        "optimism": [
+          "0x0000000000000000000000000000000000000004"
+        ],
+        "polygon": [
+          "0x0000000000000000000000000000000000000005"
+        ],
+        "base": [
+          "0x0000000000000000000000000000000000000006"
+        ]
+      }
+    }
+  ]
+}

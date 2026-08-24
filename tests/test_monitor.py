@@ -1,0 +1,114 @@
+﻿import pytest
+from unittest.mock import MagicMock, patch
+from src.monitor import Monitor
+from src.chains import CHAINS
+from src.config import Config
+from src.wallets import Entity
+from src.dedup import DedupStore
+from src.explorer import TokenTransfer
+
+
+def _make_config(**kwargs):
+    defaults = dict(
+        telegram_token="tok",
+        telegram_chat_id="cid",
+        usd_threshold=100000.0,
+        poll_interval=180,
+        explorer_keys={c.id: "key" for c in CHAINS},
+        coingecko_api_key="",
+    )
+    defaults.update(kwargs)
+    return Config(**defaults)
+
+
+def _make_entity(chain_id: str, addresses: list) -> Entity:
+    return Entity(label="TestEntity", addresses={chain_id: addresses})
+
+
+def _make_transfer(**kwargs) -> TokenTransfer:
+    defaults = dict(
+        tx_hash="0xhash",
+        from_addr="0xfrom",
+        to_addr="0xto",
+        token_symbol="UNI",
+        token_name="Uniswap",
+        token_decimals=18,
+        raw_value="1000000000000000000000",  # 1000 UNI
+        block_timestamp="1700000000",
+        contract_address="0xcontract",
+    )
+    defaults.update(kwargs)
+    return TokenTransfer(**defaults)
+
+
+def test_poll_chain_sends_alert_for_large_altcoin(tmp_path):
+    cfg = _make_config()
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity("ethereum", ["0xfrom"])
+    store = DedupStore(db_path=str(tmp_path / "test.db"))
+    monitor = Monitor(cfg, [entity], store)
+    transfer = _make_transfer()
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
+         patch("src.monitor.get_usd_price", return_value=200.0), \
+         patch("src.monitor.send_alert") as mock_alert, \
+         patch("src.monitor.time.sleep"):
+        count = monitor.poll_chain(chain)
+
+    assert count == 1
+    mock_alert.assert_called_once()
+
+
+def test_poll_chain_skips_stablecoin(tmp_path):
+    cfg = _make_config()
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity("ethereum", ["0xfrom"])
+    store = DedupStore(db_path=str(tmp_path / "test.db"))
+    monitor = Monitor(cfg, [entity], store)
+    transfer = _make_transfer(token_symbol="USDC")
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
+         patch("src.monitor.send_alert") as mock_alert, \
+         patch("src.monitor.time.sleep"):
+        count = monitor.poll_chain(chain)
+
+    assert count == 0
+    mock_alert.assert_not_called()
+
+
+def test_poll_chain_skips_below_threshold(tmp_path):
+    cfg = _make_config(usd_threshold=100000.0)
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity("ethereum", ["0xfrom"])
+    store = DedupStore(db_path=str(tmp_path / "test.db"))
+    monitor = Monitor(cfg, [entity], store)
+    transfer = _make_transfer()  # 1000 UNI
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
+         patch("src.monitor.get_usd_price", return_value=50.0), \
+         patch("src.monitor.send_alert") as mock_alert, \
+         patch("src.monitor.time.sleep"):
+        count = monitor.poll_chain(chain)
+
+    # 1000 UNI * $50 = $50,000 < $100,000 threshold
+    assert count == 0
+    mock_alert.assert_not_called()
+
+
+def test_poll_chain_deduplicates(tmp_path):
+    cfg = _make_config()
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity("ethereum", ["0xfrom"])
+    store = DedupStore(db_path=str(tmp_path / "test.db"))
+    monitor = Monitor(cfg, [entity], store)
+    transfer = _make_transfer()
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
+         patch("src.monitor.get_usd_price", return_value=200.0), \
+         patch("src.monitor.send_alert") as mock_alert, \
+         patch("src.monitor.time.sleep"):
+        monitor.poll_chain(chain)
+        count2 = monitor.poll_chain(chain)
+
+    assert count2 == 0
+    assert mock_alert.call_count == 1  # only once total
