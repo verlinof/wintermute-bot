@@ -25,6 +25,12 @@ class Monitor:
         self.config = config
         self.entities = entities
         self.dedup = dedup_store
+        
+        # Build custom labels map from wallets.json
+        self.custom_labels: dict[str, str] = {}
+        for entity in entities:
+            for addr in entity.get_addresses():
+                self.custom_labels[addr.lower()] = entity.label
 
     def poll_chain(self, chain: Chain) -> tuple[int, int]:
         """Poll one chain for all tracked entities. Returns (alerts_sent, txs_scanned)."""
@@ -119,6 +125,7 @@ class Monitor:
                         tx_hash=tx.tx_hash,
                         tx_url=chain.explorer_tx_url,
                         timestamp=tx.block_timestamp,
+                        custom_labels=self.custom_labels,
                     )
                     self.dedup.mark_seen(tx.tx_hash)
                     alerts_sent += 1

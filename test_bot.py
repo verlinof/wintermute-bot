@@ -35,6 +35,7 @@ from src.explorer import fetch_token_transfers, compute_amount
 from src.filters import is_skip_token, meets_threshold, get_required_threshold
 from src.price import get_token_price
 from src.notifier import send_alert
+from src.labels import get_address_label
 
 
 def print_banner(title: str):
@@ -64,6 +65,11 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
     try:
         entities = load_wallets("wallets.json")
         total_addresses = sum(len(e.get_addresses()) for e in entities)
+        custom_labels: dict[str, str] = {}
+        for entity in entities:
+            for addr in entity.get_addresses():
+                custom_labels[addr.lower()] = entity.label
+
         print(f"  [OK] Wallets loaded: {len(entities)} entity/entities ({total_addresses} address(es) total)")
         for idx, e in enumerate(entities, 1):
             addrs = e.get_addresses()
@@ -189,13 +195,18 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
                     req_threshold = get_required_threshold(symbol, cfg.usd_threshold)
                     meets = meets_threshold(usd_val, req_threshold)
 
+                    from_lbl = get_address_label(tx.from_addr, custom_labels)
+                    to_lbl = get_address_label(tx.to_addr, custom_labels)
+
                     if meets:
                         total_would_alert += 1
                         print(f"          • [{symbol:6}] {amount:>14,.2f} {symbol:6} @ ${price:,.2f} = ${usd_val:>14,.2f} USD -> [ALERT!] (>= ${req_threshold:,.0f})")
+                        print(f"            From: {from_lbl} ({tx.from_addr})")
+                        print(f"            To  : {to_lbl} ({tx.to_addr})")
                         
                         # If user requested --test-alert, send the first real alert to Telegram as proof!
                         if send_real_alert and not sample_alert_sent:
-                            print(f"\n  🚀 SENDING REAL LIVE TRANSACTION TO TELEGRAM AS TEST ALERT...")
+                            print(f"\n  🚀 SENDING UPDATED REAL LIVE TRANSACTION TO TELEGRAM AS TEST ALERT...")
                             send_alert(
                                 telegram_token=cfg.telegram_token,
                                 chat_id=cfg.telegram_chat_id,
@@ -206,10 +217,11 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
                                 usd_value=usd_val,
                                 from_addr=tx.from_addr,
                                 to_addr=tx.to_addr,
-                                from_label=f"{entity.label} (LIVE TEST)",
+                                from_label=entity.label,
                                 tx_hash=tx.tx_hash,
                                 tx_url=chain.explorer_tx_url,
                                 timestamp=tx.block_timestamp,
+                                custom_labels=custom_labels,
                             )
                             print(f"  ✅ Sent live alert for TX {tx.tx_hash[:10]}... ({amount:,.2f} {symbol} = ${usd_val:,.2f} USD) to Telegram!")
                             sample_alert_sent = True
