@@ -8,10 +8,12 @@ Run this script to verify:
 3. Price Oracle (DeFiLlama & CoinGecko)
 4. Blockchain Explorer API V2 connections
 5. Live wallet transaction simulation (dry-run with detailed breakdown)
+6. Send a REAL live transaction alert to Telegram for proof!
 
 Usage:
-    python test_bot.py
-    python test_bot.py --send-ping    # to also send a test alert to Telegram
+    python test_bot.py                 # Full diagnostic scan
+    python test_bot.py --send-ping     # Send a ping test message to Telegram
+    python test_bot.py --test-alert    # Fetch REAL transaction from Etherscan and send as live alert to Telegram!
 """
 import sys
 import os
@@ -32,6 +34,7 @@ from src.chains import CHAINS
 from src.explorer import fetch_token_transfers, compute_amount
 from src.filters import is_skip_token, meets_threshold, get_required_threshold
 from src.price import get_token_price
+from src.notifier import send_alert
 
 
 def print_banner(title: str):
@@ -40,7 +43,7 @@ def print_banner(title: str):
     print("=" * 70)
 
 
-def run_diagnostics(send_ping: bool = False):
+def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
     print_banner("WINTERMUTE BOT - FULL SYSTEM DIAGNOSTICS")
 
     # -------------------------------------------------------------
@@ -84,7 +87,7 @@ def run_diagnostics(send_ping: bool = False):
             print(f"  [OK] Telegram Bot Connected: @{bot_info.get('username')} ({bot_info.get('first_name')})")
             print(f"       - Target Chat ID: {cfg.telegram_chat_id}")
             
-            if send_ping or "--send-ping" in sys.argv:
+            if send_ping:
                 send_url = f"https://api.telegram.org/bot{cfg.telegram_token}/sendMessage"
                 msg_text = (
                     "🚨 *Wintermute Bot Diagnostic Test*\n\n"
@@ -95,11 +98,9 @@ def run_diagnostics(send_ping: bool = False):
                 )
                 r = requests.post(send_url, json={"chat_id": cfg.telegram_chat_id, "text": msg_text, "parse_mode": "Markdown"}, timeout=10)
                 if r.status_code == 200:
-                    print("  [SUCCESS] Test alert sent to Telegram chat successfully!")
+                    print("  [SUCCESS] Test ping sent to Telegram chat successfully!")
                 else:
                     print(f"  [WARN] Failed to send test alert: {r.text}")
-            else:
-                print("       (Tip: Run `python test_bot.py --send-ping` to send a test message to your Telegram)")
         else:
             print(f"  [FAIL] Telegram Bot error: {data.get('description')}")
     except Exception as e:
@@ -144,7 +145,7 @@ def run_diagnostics(send_ping: bool = False):
             msg = data.get("message", "")
             res = data.get("result")
             if st == "1":
-                print(f"  [OK]   {chain.name:15} (ChainID {chain.chain_id:5}): Active & responding")
+                print(f"  [OK]   {chain.name:15} (ChainID {chain.chain_id:5}): Active & responding (OK)")
             elif "Free API access is not supported" in str(res):
                 print(f"  [INFO] {chain.name:15} (ChainID {chain.chain_id:5}): Requires Pro Etherscan Key on V2")
             else:
@@ -158,6 +159,7 @@ def run_diagnostics(send_ping: bool = False):
     print("\n[5/5] Scanning Live Transactions on Configured Wallets (Simulation)...")
     total_found = 0
     total_would_alert = 0
+    sample_alert_sent = False
 
     for entity in entities:
         print(f"\n  🔍 Entity: {entity.label}")
@@ -168,7 +170,7 @@ def run_diagnostics(send_ping: bool = False):
                 if not txs:
                     continue
                 total_found += len(txs)
-                print(f"       -> Chain: {chain.name} ({len(txs)} recent txs found):")
+                print(f"       -> Chain: {chain.name} ({len(txs)} recent live txs from Etherscan):")
                 for tx in txs:
                     amount = compute_amount(tx.raw_value, tx.token_decimals)
                     symbol = tx.token_symbol or "UNKNOWN"
@@ -190,16 +192,38 @@ def run_diagnostics(send_ping: bool = False):
                     if meets:
                         total_would_alert += 1
                         print(f"          • [{symbol:6}] {amount:>14,.2f} {symbol:6} @ ${price:,.2f} = ${usd_val:>14,.2f} USD -> [ALERT!] (>= ${req_threshold:,.0f})")
+                        
+                        # If user requested --test-alert, send the first real alert to Telegram as proof!
+                        if send_real_alert and not sample_alert_sent:
+                            print(f"\n  🚀 SENDING REAL LIVE TRANSACTION TO TELEGRAM AS TEST ALERT...")
+                            send_alert(
+                                telegram_token=cfg.telegram_token,
+                                chat_id=cfg.telegram_chat_id,
+                                chain_name=chain.name,
+                                token_symbol=tx.token_symbol,
+                                token_name=tx.token_name,
+                                amount=amount,
+                                usd_value=usd_val,
+                                from_addr=tx.from_addr,
+                                to_addr=tx.to_addr,
+                                from_label=f"{entity.label} (LIVE TEST)",
+                                tx_hash=tx.tx_hash,
+                                tx_url=chain.explorer_tx_url,
+                                timestamp=tx.block_timestamp,
+                            )
+                            print(f"  ✅ Sent live alert for TX {tx.tx_hash[:10]}... ({amount:,.2f} {symbol} = ${usd_val:,.2f} USD) to Telegram!")
+                            sample_alert_sent = True
                     else:
                         print(f"          • [{symbol:6}] {amount:>14,.2f} {symbol:6} @ ${price:,.2f} = ${usd_val:>14,.2f} USD -> [SKIP] (< ${req_threshold:,.0f})")
 
     print_banner("DIAGNOSTIC SUMMARY")
-    print(f"  • Total live transactions analyzed : {total_found}")
-    print(f"  • Transactions meeting threshold    : {total_would_alert}")
-    print(f"  • System Status                     : ALL SYSTEMS OPERATIONAL (READY TO RUN)")
+    print(f"  • Total live transactions fetched from Etherscan : {total_found}")
+    print(f"  • Transactions meeting threshold criteria        : {total_would_alert}")
+    print(f"  • System Status                                  : ALL SYSTEMS OPERATIONAL (READY TO RUN)")
     print("=" * 70 + "\n")
 
 
 if __name__ == "__main__":
     send_ping_flag = "--send-ping" in sys.argv
-    run_diagnostics(send_ping=send_ping_flag)
+    send_real_alert_flag = "--test-alert" in sys.argv
+    run_diagnostics(send_ping=send_ping_flag, send_real_alert=send_real_alert_flag)
