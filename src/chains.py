@@ -10,6 +10,7 @@ class Chain:
     defillama_prefix: str
 
 
+# Only keeping chains supported by Etherscan V2 Free Tier
 CHAINS: list = [
     Chain(
         id="ethereum",
@@ -31,26 +32,5 @@ CHAINS: list = [
         chain_id=137,
         explorer_tx_url="https://polygonscan.com/tx/",
         defillama_prefix="polygon",
-    ),
-    Chain(
-        id="bsc",
-        name="BSC",
-        chain_id=56,
-        explorer_tx_url="https://bscscan.com/tx/",
-        defillama_prefix="bsc",
-    ),
-    Chain(
-        id="optimism",
-        name="Optimism",
-        chain_id=10,
-        explorer_tx_url="https://optimistic.etherscan.io/tx/",
-        defillama_prefix="optimism",
-    ),
-    Chain(
-        id="base",
-        name="Base",
-        chain_id=8453,
-        explorer_tx_url="https://basescan.org/tx/",
-        defillama_prefix="base",
     ),
 ]
