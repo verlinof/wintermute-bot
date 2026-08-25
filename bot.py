@@ -8,13 +8,20 @@ and sends Telegram alerts.
 Usage:
     1. Copy .env.example to .env and fill in your values.
     2. Edit wallets.json to add/remove wallet addresses.
-    3. Install dependencies: pip install -r requirements.txt
-    4. Run: python bot.py
+    3. Run diagnostics & test: python test_bot.py --send-ping
+    4. Run bot: python bot.py
 """
+import sys
 import logging
 import schedule
 import time
 from dotenv import load_dotenv
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 load_dotenv()
 
@@ -25,7 +32,7 @@ from src.monitor import Monitor
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("wintermute-bot")
@@ -45,18 +52,17 @@ def main():
         len(entities),
         ", ".join(e.label for e in entities),
     )
-    logger.info("USD threshold: $%.0f", config.usd_threshold)
+    logger.info("Base USD threshold: $%.0f USD (BTC/ETH: $1,000,000 USD)", config.usd_threshold)
     logger.info("Poll interval: %ds", config.poll_interval)
 
     dedup = DedupStore()
     monitor = Monitor(config, entities, dedup)
 
-    # Run immediately on start, then on schedule
     logger.info("Running initial poll...")
     monitor.run_once()
 
     schedule.every(config.poll_interval).seconds.do(monitor.run_once)
-    logger.info("Scheduler started. Press Ctrl+C to stop.")
+    logger.info("Scheduler active. Press Ctrl+C to stop.")
 
     try:
         while True:
