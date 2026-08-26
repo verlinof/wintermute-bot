@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - main
 
 jobs:
   deploy:
@@ -19,7 +18,7 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             # Ganti path ini sesuai dengan lokasi folder bot di VPS kamu
-            cd /wintermute-bot
+            cd /root/wintermute-bot
 
             echo "Pulling latest changes from GitHub..."
             git pull origin master
