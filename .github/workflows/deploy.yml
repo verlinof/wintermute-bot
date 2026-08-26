@@ -20,18 +20,12 @@ jobs:
           script: |
             # Ganti path ini sesuai dengan lokasi folder bot di VPS kamu
             cd /path/to/your/wintermute-bot
-            
+
             echo "Pulling latest changes from GitHub..."
             git pull origin master
-            
-            echo "Installing/Updating dependencies..."
-            # Asumsi kamu pakai virtual environment (sangat disarankan)
-            # Jika tidak, hapus baris 'source' di bawah
-            source venv/bin/activate 2>/dev/null || true
-            pip install -r requirements.txt
-            
+
             echo "Restarting Bot Service..."
             # Ganti nama service sesuai dengan nama service systemd kamu, contoh:
-            sudo systemctl restart wintermute-bot
-            
+            docker compose down && docker compose up -d --build
+
             echo "Deployment Successful!"
