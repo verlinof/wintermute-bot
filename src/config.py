@@ -10,6 +10,10 @@ class Config:
     poll_interval: int
     explorer_keys: dict  # chain_id -> api_key
     coingecko_api_key: str = ""
+    accumulation_enabled: bool = True
+    accumulation_usd_threshold: float = 500000.0
+    accumulation_window_hours: int = 24
+    accumulation_min_tx_count: int = 2
 
 
 def load_config() -> "Config":
@@ -39,4 +43,8 @@ def load_config() -> "Config":
             "optimism":  etherscan_key,
             "base":      etherscan_key,
         },
+        accumulation_enabled=os.environ.get("ACCUMULATION_ENABLED", "true").lower() in ("true", "1", "yes"),
+        accumulation_usd_threshold=float(os.environ.get("ACCUMULATION_USD_THRESHOLD", "500000")),
+        accumulation_window_hours=int(os.environ.get("ACCUMULATION_WINDOW_HOURS", "24")),
+        accumulation_min_tx_count=int(os.environ.get("ACCUMULATION_MIN_TX_COUNT", "2")),
     )
