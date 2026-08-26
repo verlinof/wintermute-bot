@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Wintermute Bot — Diagnostic & Testing Tool
 ===========================================
@@ -91,7 +91,7 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
         if data.get("ok"):
             bot_info = data["result"]
             print(f"  [OK] Telegram Bot Connected: @{bot_info.get('username')} ({bot_info.get('first_name')})")
-            print(f"       - Target Chat ID: {cfg.telegram_chat_id}")
+            print(f"       - Target Chat ID(s): {', '.join(cfg.telegram_chat_ids)}")
             
             if send_ping:
                 send_url = f"https://api.telegram.org/bot{cfg.telegram_token}/sendMessage"
@@ -102,11 +102,12 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
                     f"👀 *Monitored Entities:* {len(entities)}\n\n"
                     "Everything is ready to track transactions."
                 )
-                r = requests.post(send_url, json={"chat_id": cfg.telegram_chat_id, "text": msg_text, "parse_mode": "Markdown"}, timeout=10)
-                if r.status_code == 200:
-                    print("  [SUCCESS] Test ping sent to Telegram chat successfully!")
-                else:
-                    print(f"  [WARN] Failed to send test alert: {r.text}")
+                for chat_id in cfg.telegram_chat_ids:
+                    r = requests.post(send_url, json={"chat_id": chat_id, "text": msg_text, "parse_mode": "Markdown"}, timeout=10)
+                    if r.status_code == 200:
+                        print(f"  [SUCCESS] Test ping sent to Telegram chat {chat_id} successfully!")
+                    else:
+                        print(f"  [WARN] Failed to send test alert to {chat_id}: {r.text}")
         else:
             print(f"  [FAIL] Telegram Bot error: {data.get('description')}")
     except Exception as e:
@@ -209,7 +210,7 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
                             print(f"\n  🚀 SENDING UPDATED REAL LIVE TRANSACTION TO TELEGRAM AS TEST ALERT...")
                             send_alert(
                                 telegram_token=cfg.telegram_token,
-                                chat_id=cfg.telegram_chat_id,
+                                chat_ids=cfg.telegram_chat_ids,
                                 chain_name=chain.name,
                                 token_symbol=tx.token_symbol,
                                 token_name=tx.token_name,

@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from unittest.mock import MagicMock, patch
 from src.monitor import Monitor
 from src.chains import CHAINS
@@ -11,7 +11,7 @@ from src.explorer import TokenTransfer
 def _make_config(**kwargs):
     defaults = dict(
         telegram_token="tok",
-        telegram_chat_id="cid",
+        telegram_chat_ids=["cid"],
         usd_threshold=100000.0,
         poll_interval=180,
         explorer_keys={c.id: "key" for c in CHAINS},
@@ -50,12 +50,12 @@ def test_poll_chain_sends_alert_for_large_altcoin(tmp_path):
     transfer = _make_transfer()
 
     with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
-         patch("src.monitor.get_usd_price", return_value=200.0), \
+         patch("src.monitor.get_token_price", return_value=200.0), \
          patch("src.monitor.send_alert") as mock_alert, \
          patch("src.monitor.time.sleep"):
-        count = monitor.poll_chain(chain)
+        alerts, txs = monitor.poll_chain(chain)
 
-    assert count == 1
+    assert alerts == 1
     mock_alert.assert_called_once()
 
 
@@ -70,9 +70,9 @@ def test_poll_chain_skips_stablecoin(tmp_path):
     with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
          patch("src.monitor.send_alert") as mock_alert, \
          patch("src.monitor.time.sleep"):
-        count = monitor.poll_chain(chain)
+        alerts, txs = monitor.poll_chain(chain)
 
-    assert count == 0
+    assert alerts == 0
     mock_alert.assert_not_called()
 
 
@@ -85,13 +85,13 @@ def test_poll_chain_skips_below_threshold(tmp_path):
     transfer = _make_transfer()  # 1000 UNI
 
     with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
-         patch("src.monitor.get_usd_price", return_value=50.0), \
+         patch("src.monitor.get_token_price", return_value=50.0), \
          patch("src.monitor.send_alert") as mock_alert, \
          patch("src.monitor.time.sleep"):
-        count = monitor.poll_chain(chain)
+        alerts, txs = monitor.poll_chain(chain)
 
     # 1000 UNI * $50 = $50,000 < $100,000 threshold
-    assert count == 0
+    assert alerts == 0
     mock_alert.assert_not_called()
 
 
@@ -108,12 +108,12 @@ def test_poll_chain_major_token_threshold(tmp_path):
     transfer2 = _make_transfer(token_symbol="ETH", tx_hash="0xhash2", raw_value="3000000000000000000000") # 3000 ETH
 
     with patch("src.monitor.fetch_token_transfers", return_value=[transfer1, transfer2]), \
-         patch("src.monitor.get_usd_price", return_value=500.0), \
+         patch("src.monitor.get_token_price", return_value=500.0), \
          patch("src.monitor.send_alert") as mock_alert, \
          patch("src.monitor.time.sleep"):
-        count = monitor.poll_chain(chain)
+        alerts, txs = monitor.poll_chain(chain)
 
-    assert count == 1
+    assert alerts == 1
     mock_alert.assert_called_once()
     assert mock_alert.call_args[1]["tx_hash"] == "0xhash2"
 
@@ -127,11 +127,11 @@ def test_poll_chain_deduplicates(tmp_path):
     transfer = _make_transfer()
 
     with patch("src.monitor.fetch_token_transfers", return_value=[transfer]), \
-         patch("src.monitor.get_usd_price", return_value=200.0), \
+         patch("src.monitor.get_token_price", return_value=200.0), \
          patch("src.monitor.send_alert") as mock_alert, \
          patch("src.monitor.time.sleep"):
         monitor.poll_chain(chain)
-        count2 = monitor.poll_chain(chain)
+        alerts, txs = monitor.poll_chain(chain)
 
-    assert count2 == 0
+    assert alerts == 0
     assert mock_alert.call_count == 1

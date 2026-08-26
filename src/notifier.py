@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from datetime import datetime, timezone
 import requests
 from src.labels import get_address_label
@@ -19,7 +19,7 @@ def _format_number(n: float) -> str:
 
 def send_alert(
     telegram_token: str,
-    chat_id: str,
+    chat_ids: list[str],
     chain_name: str,
     token_symbol: str,
     token_name: str,
@@ -71,13 +71,14 @@ def send_alert(
     )
 
     url = TELEGRAM_API.format(token=telegram_token)
-    try:
-        resp = requests.post(
-            url,
-            json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown", "disable_web_page_preview": False},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        logger.info("Alert sent for tx %s on %s", tx_hash, chain_name)
-    except requests.RequestException as e:
-        logger.error("Failed to send Telegram alert: %s", e)
+    for chat_id in chat_ids:
+        try:
+            resp = requests.post(
+                url,
+                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown", "disable_web_page_preview": False},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            logger.info("Alert sent for tx %s on %s to chat_id %s", tx_hash, chain_name, chat_id)
+        except requests.RequestException as e:
+            logger.error("Failed to send Telegram alert to chat_id %s: %s", chat_id, e)

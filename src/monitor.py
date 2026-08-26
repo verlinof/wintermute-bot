@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import time
 from src.config import Config
 from src.wallets import Entity
@@ -113,7 +113,7 @@ class Monitor:
 
                     send_alert(
                         telegram_token=self.config.telegram_token,
-                        chat_id=self.config.telegram_chat_id,
+                        chat_ids=self.config.telegram_chat_ids,
                         chain_name=chain.name,
                         token_symbol=tx.token_symbol,
                         token_name=tx.token_name,

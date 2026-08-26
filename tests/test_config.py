@@ -1,4 +1,4 @@
-﻿import os
+import os
 import importlib
 import pytest
 from unittest.mock import patch
@@ -18,7 +18,7 @@ def test_load_config_reads_env():
         from src.config import load_config
         cfg = load_config()
     assert cfg.telegram_token == "token123"
-    assert cfg.telegram_chat_id == "123456"
+    assert cfg.telegram_chat_ids == ["123456"]
     assert cfg.usd_threshold == 50000.0
     assert cfg.poll_interval == 120
     assert cfg.explorer_keys["ethereum"] == "unified_key_123"

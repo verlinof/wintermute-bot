@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from unittest.mock import patch, MagicMock
 import src.price as price_module
 from src.price import get_usd_price
@@ -6,6 +6,7 @@ from src.price import get_usd_price
 
 def setup_function():
     price_module._symbol_cache.clear()
+    price_module._price_cache.clear()
     price_module._cache_loaded = False
 
 
@@ -14,11 +15,14 @@ def test_known_symbol_returns_price():
     mock_price_resp.json.return_value = {"uniswap": {"usd": 8.50}}
     mock_price_resp.raise_for_status = MagicMock()
 
+    mock_price_resp.status_code = 200
+
     mock_id_resp = MagicMock()
     mock_id_resp.json.return_value = [
         {"id": "uniswap", "symbol": "uni", "name": "Uniswap"}
     ]
     mock_id_resp.raise_for_status = MagicMock()
+    mock_id_resp.status_code = 200
 
     with patch("src.price.requests.get") as mock_get:
         mock_get.side_effect = [mock_id_resp, mock_price_resp]
