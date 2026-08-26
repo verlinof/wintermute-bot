@@ -1,4 +1,4 @@
-﻿# Design Specification: Token Accumulation Detection & Milestone Alerts
+# Design Specification: Token Accumulation Detection & Milestone Alerts
 
 ## 1. Overview
 The Wintermute Transaction Monitor currently tracks individual large token transfers exceeding a defined USD threshold. This feature enhances the bot to detect **cumulative inflow (accumulation)** of specific tokens across multiple transactions within a rolling time window (e.g., 24 hours), even if individual transactions are below the single-transaction threshold.
@@ -6,9 +6,9 @@ The Wintermute Transaction Monitor currently tracks individual large token trans
 ## 2. Requirements & Goals
 - **Direction**: Inflow only (transfers where the recipient `to_addr` is one of the monitored wallet addresses).
 - **Time Window**: Configurable rolling window in hours (default: 24 hours).
-- **Threshold**: Configurable cumulative USD threshold per milestone step (default: $1,000,000 USD).
+- **Threshold**: Configurable cumulative USD threshold per milestone step (default: $500,000 USD).
 - **Transaction Count Gate**: Minimum number of inflow transactions required within the window to trigger an alert (default: 2 txs).
-- **Milestone Anti-Spam Policy**: Alerts trigger when cumulative inflow reaches a new milestone tier (e.g., $1,000,000, $2,000,000, $3,000,000). Subsequent transfers that do not cross into a higher milestone tier do not produce duplicate alerts.
+- **Milestone Anti-Spam Policy**: Alerts trigger when cumulative inflow reaches a new milestone tier (e.g., $500,000, $1,000,000, $1,500,000). Subsequent transfers that do not cross into a higher milestone tier do not produce duplicate alerts.
 - **Resource Efficiency**: Use the existing SQLite store with automatic pruning for records outside the active window to ensure minimal memory and storage footprint.
 
 ## 3. Configuration & Environment Variables
@@ -17,7 +17,7 @@ The following parameters will be added to `.env.example`, `.env`, and parsed int
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `ACCUMULATION_ENABLED` | bool | `true` | Enable or disable accumulation detection |
-| `ACCUMULATION_USD_THRESHOLD` | float | `1000000.0` | USD threshold per milestone tier |
+| `ACCUMULATION_USD_THRESHOLD` | float | `500000.0` | USD threshold per milestone tier |
 | `ACCUMULATION_WINDOW_HOURS` | int | `24` | Rolling accumulation time window in hours |
 | `ACCUMULATION_MIN_TX_COUNT` | int | `2` | Minimum inflow transactions required to trigger |
 
