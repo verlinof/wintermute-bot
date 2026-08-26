@@ -19,7 +19,7 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             # Ganti path ini sesuai dengan lokasi folder bot di VPS kamu
-            cd /path/to/your/wintermute-bot
+            cd /wintermute-bot
 
             echo "Pulling latest changes from GitHub..."
             git pull origin master
