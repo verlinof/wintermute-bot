@@ -135,3 +135,115 @@ def test_poll_chain_deduplicates(tmp_path):
 
     assert alerts == 0
     assert mock_alert.call_count == 1
+
+
+def test_poll_chain_accumulation_detection(tmp_path):
+    from src.accumulation import AccumulationStore
+    cfg = _make_config(
+        usd_threshold=500000.0,
+        accumulation_enabled=True,
+        accumulation_usd_threshold=500000.0,
+        accumulation_window_hours=24,
+        accumulation_min_tx_count=2,
+    )
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity(["0xmonitored"])
+    dedup = DedupStore(db_path=str(tmp_path / "dedup.db"))
+    accum_store = AccumulationStore(db_path=str(tmp_path / "accum.db"))
+    monitor = Monitor(cfg, [entity], dedup, accumulation_store=accum_store)
+
+    import time
+    now = int(time.time())
+
+    # Inflow transfer 1: $300,000 USD (below single transfer threshold $500,000)
+    tx1 = _make_transfer(
+        tx_hash="0xtx1",
+        from_addr="0xsender",
+        to_addr="0xmonitored",
+        token_symbol="ARB",
+        raw_value="300000000000000000000000", # 300,000 ARB
+        block_timestamp=str(now - 1800),
+    )
+    # Inflow transfer 2: $300,000 USD
+    tx2 = _make_transfer(
+        tx_hash="0xtx2",
+        from_addr="0xsender",
+        to_addr="0xmonitored",
+        token_symbol="ARB",
+        raw_value="300000000000000000000000", # 300,000 ARB
+        block_timestamp=str(now - 600),
+    )
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[tx1, tx2]), \
+         patch("src.monitor.get_token_price", return_value=1.0), \
+         patch("src.monitor.send_alert") as mock_single_alert, \
+         patch("src.monitor.send_accumulation_alert") as mock_accum_alert, \
+         patch("src.monitor.time.sleep"):
+        alerts, txs = monitor.poll_chain(chain)
+
+    # Single transfer alert should not trigger ($300k < $500k)
+    mock_single_alert.assert_not_called()
+    # Accumulation alert should trigger ($600k total >= $500k milestone tier, 2 txs)
+    assert mock_accum_alert.call_count == 1
+    call_args = mock_accum_alert.call_args[1]
+    assert call_args["milestone_tier"] == 500000.0
+    assert call_args["tx_count"] == 2
+    assert call_args["token_symbol"] == "ARB"
+
+
+def test_poll_chain_accumulation_milestone_progression(tmp_path):
+    from src.accumulation import AccumulationStore
+    cfg = _make_config(
+        usd_threshold=500000.0,
+        accumulation_enabled=True,
+        accumulation_usd_threshold=500000.0,
+        accumulation_window_hours=24,
+        accumulation_min_tx_count=2,
+    )
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    entity = _make_entity(["0xmonitored"])
+    dedup = DedupStore(db_path=str(tmp_path / "dedup.db"))
+    accum_store = AccumulationStore(db_path=str(tmp_path / "accum.db"))
+    monitor = Monitor(cfg, [entity], dedup, accumulation_store=accum_store)
+
+    import time
+    now = int(time.time())
+
+    # Cycle 1: Two $300k transfers -> Total $600k (Crosses $500k milestone tier)
+    tx1 = _make_transfer(tx_hash="0xtx1", from_addr="0xsender", to_addr="0xmonitored", token_symbol="ARB", raw_value="300000000000000000000000", block_timestamp=str(now - 1800))
+    tx2 = _make_transfer(tx_hash="0xtx2", from_addr="0xsender", to_addr="0xmonitored", token_symbol="ARB", raw_value="300000000000000000000000", block_timestamp=str(now - 1200))
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[tx1, tx2]), \
+         patch("src.monitor.get_token_price", return_value=1.0), \
+         patch("src.monitor.send_accumulation_alert") as mock_accum_alert, \
+         patch("src.monitor.time.sleep"):
+        alerts, _ = monitor.poll_chain(chain)
+
+    assert alerts == 1
+    assert mock_accum_alert.call_count == 1
+    assert mock_accum_alert.call_args[1]["milestone_tier"] == 500000.0
+
+    # Cycle 2: One $200k transfer -> Total $800k (Still in $500k tier -> NO new alert)
+    tx3 = _make_transfer(tx_hash="0xtx3", from_addr="0xsender", to_addr="0xmonitored", token_symbol="ARB", raw_value="200000000000000000000000", block_timestamp=str(now - 600))
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[tx3]), \
+         patch("src.monitor.get_token_price", return_value=1.0), \
+         patch("src.monitor.send_accumulation_alert") as mock_accum_alert2, \
+         patch("src.monitor.time.sleep"):
+        alerts2, _ = monitor.poll_chain(chain)
+
+    assert alerts2 == 0
+    mock_accum_alert2.assert_not_called()
+
+    # Cycle 3: One $300k transfer -> Total $1.1M (Crosses $1,000,000 tier -> Triggers Tier 2 Alert!)
+    tx4 = _make_transfer(tx_hash="0xtx4", from_addr="0xsender", to_addr="0xmonitored", token_symbol="ARB", raw_value="300000000000000000000000", block_timestamp=str(now - 100))
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[tx4]), \
+         patch("src.monitor.get_token_price", return_value=1.0), \
+         patch("src.monitor.send_accumulation_alert") as mock_accum_alert3, \
+         patch("src.monitor.time.sleep"):
+        alerts3, _ = monitor.poll_chain(chain)
+
+    assert alerts3 == 1
+    assert mock_accum_alert3.call_count == 1
+    assert mock_accum_alert3.call_args[1]["milestone_tier"] == 1000000.0

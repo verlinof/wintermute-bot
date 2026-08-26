@@ -11,9 +11,10 @@ Run this script to verify:
 6. Send a REAL live transaction alert to Telegram for proof!
 
 Usage:
-    python test_bot.py                 # Full diagnostic scan
-    python test_bot.py --send-ping     # Send a ping test message to Telegram
-    python test_bot.py --test-alert    # Fetch REAL transaction from Etherscan and send as live alert to Telegram!
+    python test_bot.py                     # Full diagnostic scan
+    python test_bot.py --send-ping         # Send a ping test message to Telegram
+    python test_bot.py --test-alert        # Fetch REAL transaction from Etherscan and send as live alert to Telegram!
+    python test_bot.py --test-accumulation # Send a test accumulation milestone alert to Telegram!
 """
 import sys
 import os
@@ -34,7 +35,7 @@ from src.chains import CHAINS
 from src.explorer import fetch_token_transfers, compute_amount
 from src.filters import is_skip_token, meets_threshold, get_required_threshold
 from src.price import get_token_price
-from src.notifier import send_alert
+from src.notifier import send_alert, send_accumulation_alert
 from src.labels import get_address_label
 
 
@@ -44,7 +45,7 @@ def print_banner(title: str):
     print("=" * 70)
 
 
-def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
+def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False, send_accum_alert: bool = False):
     print_banner("WINTERMUTE BOT - FULL SYSTEM DIAGNOSTICS")
 
     # -------------------------------------------------------------
@@ -56,6 +57,13 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
         print(f"  [OK] Config loaded successfully")
         print(f"       - Base USD Threshold : ${cfg.usd_threshold:,.2f}")
         print(f"       - Poll Interval      : {cfg.poll_interval}s")
+        if cfg.accumulation_enabled:
+            print(f"       - Accumulation Track : ENABLED")
+            print(f"         • Threshold / Tier : ${cfg.accumulation_usd_threshold:,.2f} USD")
+            print(f"         • Rolling Window   : {cfg.accumulation_window_hours} hours")
+            print(f"         • Min Transactions : {cfg.accumulation_min_tx_count} txs")
+        else:
+            print(f"       - Accumulation Track : DISABLED")
         key_status = ('Set (***' + cfg.explorer_keys.get('ethereum', '')[-4:] + ')') if cfg.explorer_keys.get('ethereum') else 'NOT SET'
         print(f"       - Etherscan API Key  : {key_status}")
     except Exception as e:
@@ -108,6 +116,27 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
                         print(f"  [SUCCESS] Test ping sent to Telegram chat {chat_id} successfully!")
                     else:
                         print(f"  [WARN] Failed to send test alert to {chat_id}: {r.text}")
+
+            if send_accum_alert:
+                print(f"  🚀 Sending test accumulation milestone alert to Telegram chat(s)...")
+                sample_entity = entities[0] if entities else None
+                sample_label = sample_entity.label if sample_entity else "Wintermute"
+                sample_recipient = sample_entity.get_addresses()[0] if sample_entity and sample_entity.get_addresses() else "0x0000000000000000000000000000000000000000"
+                send_accumulation_alert(
+                    telegram_token=cfg.telegram_token,
+                    chat_ids=cfg.telegram_chat_ids,
+                    chain_name="Ethereum",
+                    token_symbol="ARB",
+                    token_name="Arbitrum",
+                    total_amount=600000.0,
+                    total_usd=540000.0,
+                    tx_count=4,
+                    milestone_tier=cfg.accumulation_usd_threshold,
+                    recipient_addr=sample_recipient,
+                    entity_label=sample_label,
+                    window_hours=cfg.accumulation_window_hours,
+                )
+                print("  [SUCCESS] Test accumulation milestone alert sent successfully!")
         else:
             print(f"  [FAIL] Telegram Bot error: {data.get('description')}")
     except Exception as e:
@@ -239,4 +268,9 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False):
 if __name__ == "__main__":
     send_ping_flag = "--send-ping" in sys.argv
     send_real_alert_flag = "--test-alert" in sys.argv
-    run_diagnostics(send_ping=send_ping_flag, send_real_alert=send_real_alert_flag)
+    send_accum_alert_flag = "--test-accumulation" in sys.argv
+    run_diagnostics(
+        send_ping=send_ping_flag,
+        send_real_alert=send_real_alert_flag,
+        send_accum_alert=send_accum_alert_flag,
+    )

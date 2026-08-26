@@ -82,3 +82,57 @@ def send_alert(
             logger.info("Alert sent for tx %s on %s to chat_id %s", tx_hash, chain_name, chat_id)
         except requests.RequestException as e:
             logger.error("Failed to send Telegram alert to chat_id %s: %s", chat_id, e)
+
+
+def send_accumulation_alert(
+    telegram_token: str,
+    chat_ids: list[str],
+    chain_name: str,
+    token_symbol: str,
+    token_name: str,
+    total_amount: float,
+    total_usd: float,
+    tx_count: int,
+    milestone_tier: float,
+    recipient_addr: str,
+    entity_label: str,
+    window_hours: int = 24,
+    timestamp: str | int | None = None,
+) -> None:
+    """Send a Telegram alert for detected token accumulation / milestone progression."""
+    if timestamp:
+        try:
+            ts = datetime.fromtimestamp(int(timestamp), tz=timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S UTC"
+            )
+        except (ValueError, OSError):
+            ts = str(timestamp)
+    else:
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    text = (
+        f"📈 *ACCUMULATION DETECTED!* (Milestone Alert)\n\n"
+        f"🏷️ *Monitored Entity:* {entity_label}\n"
+        f"🔗 *Chain:* {chain_name}\n"
+        f"💰 *Token:* {token_symbol} ({token_name})\n"
+        f"🎯 *Milestone Tier:* ${_format_number(milestone_tier)} USD Level\n"
+        f"📊 *Total Inflow ({window_hours}h):* {_format_number(total_amount)} {token_symbol} (~${_format_number(total_usd)} USD)\n"
+        f"🔢 *Total Transactions:* {tx_count} txs in the last {window_hours}h\n\n"
+        f"📥 *Recipient Wallet:*\n"
+        f"`{recipient_addr}`\n\n"
+        f"⏱️ *Window:* Last {window_hours} Hours\n"
+        f"⏰ *Time:* {ts}"
+    )
+
+    url = TELEGRAM_API.format(token=telegram_token)
+    for chat_id in chat_ids:
+        try:
+            resp = requests.post(
+                url,
+                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown", "disable_web_page_preview": False},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            logger.info("Accumulation alert sent for %s (%s) on %s to chat_id %s", token_symbol, entity_label, chain_name, chat_id)
+        except requests.RequestException as e:
+            logger.error("Failed to send Telegram accumulation alert to chat_id %s: %s", chat_id, e)

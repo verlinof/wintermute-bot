@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Wintermute Transaction Monitor
 ================================
@@ -28,6 +28,7 @@ load_dotenv()
 from src.config import load_config
 from src.wallets import load_wallets
 from src.dedup import DedupStore
+from src.accumulation import AccumulationStore
 from src.monitor import Monitor
 
 logging.basicConfig(
@@ -53,10 +54,20 @@ def main():
         ", ".join(e.label for e in entities),
     )
     logger.info("Base USD threshold: $%.0f USD (BTC/ETH: $1,000,000 USD)", config.usd_threshold)
+    if config.accumulation_enabled:
+        logger.info(
+            "Accumulation tracking: ACTIVE (Threshold: $%.0f USD, Window: %dh, Min TXs: %d)",
+            config.accumulation_usd_threshold,
+            config.accumulation_window_hours,
+            config.accumulation_min_tx_count,
+        )
+    else:
+        logger.info("Accumulation tracking: DISABLED")
     logger.info("Poll interval: %ds", config.poll_interval)
 
     dedup = DedupStore()
-    monitor = Monitor(config, entities, dedup)
+    accum_store = AccumulationStore()
+    monitor = Monitor(config, entities, dedup, accum_store)
 
     logger.info("Running initial poll...")
     monitor.run_once()

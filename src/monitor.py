@@ -7,7 +7,8 @@ from src.explorer import fetch_token_transfers, compute_amount
 from src.filters import is_skip_token, meets_threshold, get_required_threshold
 from src.price import get_token_price
 from src.dedup import DedupStore
-from src.notifier import send_alert
+from src.accumulation import AccumulationStore
+from src.notifier import send_alert, send_accumulation_alert
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,17 @@ def _short_hash(tx_hash: str) -> str:
 
 
 class Monitor:
-    def __init__(self, config: Config, entities: list[Entity], dedup_store: DedupStore):
+    def __init__(
+        self,
+        config: Config,
+        entities: list[Entity],
+        dedup_store: DedupStore,
+        accumulation_store: AccumulationStore | None = None,
+    ):
         self.config = config
         self.entities = entities
         self.dedup = dedup_store
+        self.accumulation_store = accumulation_store or AccumulationStore()
         
         # Build custom labels map from wallets.json
         self.custom_labels: dict[str, str] = {}
@@ -40,6 +48,8 @@ class Monitor:
 
         for entity in self.entities:
             addresses = entity.get_addresses()
+            entity_addrs_set = {a.lower() for a in addresses}
+
             for address in addresses:
                 transfers = fetch_token_transfers(chain, address, api_key)
                 total_txs += len(transfers)
@@ -82,11 +92,105 @@ class Monitor:
                         )
                         continue
 
-                    # 5. Compute USD value & threshold
+                    # 5. Compute USD value
                     usd_value = amount * usd_price
+
+                    # 6. Inflow & Accumulation Check
+                    if self.config.accumulation_enabled and tx.to_addr.lower() in entity_addrs_set:
+                        self.accumulation_store.record_inflow(
+                            tx_hash=tx.tx_hash,
+                            chain=chain.name,
+                            entity_label=entity.label,
+                            recipient_addr=tx.to_addr,
+                            token_symbol=tx.token_symbol,
+                            token_name=tx.token_name,
+                            amount=amount,
+                            usd_value=usd_value,
+                            timestamp=int(tx.block_timestamp),
+                        )
+                        tot_amount, tot_usd, tx_count = self.accumulation_store.get_accumulation_stats(
+                            chain=chain.name,
+                            entity_label=entity.label,
+                            token_symbol=tx.token_symbol,
+                            window_hours=self.config.accumulation_window_hours,
+                        )
+                        threshold = self.config.accumulation_usd_threshold
+                        current_milestone = (tot_usd // threshold) * threshold
+                        highest_milestone = self.accumulation_store.get_highest_milestone(
+                            chain=chain.name,
+                            entity_label=entity.label,
+                            token_symbol=tx.token_symbol,
+                        )
+
+                        if (
+                            tx_count >= self.config.accumulation_min_tx_count
+                            and current_milestone >= threshold
+                            and current_milestone > highest_milestone
+                        ):
+                            logger.info(
+                                "  [%s] 📈 ACCUMULATION DETECTED! %s (%s) reached $%s milestone tier (~$%s total across %d txs) -> Sending Alert!",
+                                chain.name,
+                                tx.token_symbol,
+                                entity.label,
+                                f"{current_milestone:,.0f}",
+                                f"{tot_usd:,.2f}",
+                                tx_count,
+                            )
+                            send_accumulation_alert(
+                                telegram_token=self.config.telegram_token,
+                                chat_ids=self.config.telegram_chat_ids,
+                                chain_name=chain.name,
+                                token_symbol=tx.token_symbol,
+                                token_name=tx.token_name,
+                                total_amount=tot_amount,
+                                total_usd=tot_usd,
+                                tx_count=tx_count,
+                                milestone_tier=current_milestone,
+                                recipient_addr=tx.to_addr,
+                                entity_label=entity.label,
+                                window_hours=self.config.accumulation_window_hours,
+                                timestamp=tx.block_timestamp,
+                            )
+                            self.accumulation_store.set_highest_milestone(
+                                chain=chain.name,
+                                entity_label=entity.label,
+                                token_symbol=tx.token_symbol,
+                                milestone_usd=current_milestone,
+                            )
+                            alerts_sent += 1
+
+                    # 7. Single Large Transfer Threshold Check
                     required_threshold = get_required_threshold(tx.token_symbol, self.config.usd_threshold)
 
-                    if not meets_threshold(usd_value, required_threshold):
+                    if meets_threshold(usd_value, required_threshold):
+                        logger.info(
+                            "  [%s] 🚨 LARGE TRANSFER DETECTED! TX %s [%s] %s ($%s USD >= $%s) -> Sending Telegram Alert!",
+                            chain.name,
+                            _short_hash(tx.tx_hash),
+                            tx.token_symbol,
+                            f"{amount:,.2f}",
+                            f"{usd_value:,.2f}",
+                            f"{required_threshold:,.0f}",
+                        )
+
+                        send_alert(
+                            telegram_token=self.config.telegram_token,
+                            chat_ids=self.config.telegram_chat_ids,
+                            chain_name=chain.name,
+                            token_symbol=tx.token_symbol,
+                            token_name=tx.token_name,
+                            amount=amount,
+                            usd_value=usd_value,
+                            from_addr=tx.from_addr,
+                            to_addr=tx.to_addr,
+                            from_label=entity.label,
+                            tx_hash=tx.tx_hash,
+                            tx_url=chain.explorer_tx_url,
+                            timestamp=tx.block_timestamp,
+                            custom_labels=self.custom_labels,
+                        )
+                        alerts_sent += 1
+                    else:
                         logger.info(
                             "  [%s] ⏭️ TX %s [%s] %s @ $%s = $%s USD (< $%s threshold) -> Skipped",
                             chain.name,
@@ -97,38 +201,9 @@ class Monitor:
                             f"{usd_value:,.2f}",
                             f"{required_threshold:,.0f}",
                         )
-                        self.dedup.mark_seen(tx.tx_hash)
-                        continue
 
-                    # 6. ALERT TRIGGERED!
-                    logger.info(
-                        "  [%s] 🚨 LARGE TRANSFER DETECTED! TX %s [%s] %s ($%s USD >= $%s) -> Sending Telegram Alert!",
-                        chain.name,
-                        _short_hash(tx.tx_hash),
-                        tx.token_symbol,
-                        f"{amount:,.2f}",
-                        f"{usd_value:,.2f}",
-                        f"{required_threshold:,.0f}",
-                    )
-
-                    send_alert(
-                        telegram_token=self.config.telegram_token,
-                        chat_ids=self.config.telegram_chat_ids,
-                        chain_name=chain.name,
-                        token_symbol=tx.token_symbol,
-                        token_name=tx.token_name,
-                        amount=amount,
-                        usd_value=usd_value,
-                        from_addr=tx.from_addr,
-                        to_addr=tx.to_addr,
-                        from_label=entity.label,
-                        tx_hash=tx.tx_hash,
-                        tx_url=chain.explorer_tx_url,
-                        timestamp=tx.block_timestamp,
-                        custom_labels=self.custom_labels,
-                    )
+                    # Mark transaction as seen
                     self.dedup.mark_seen(tx.tx_hash)
-                    alerts_sent += 1
 
         return alerts_sent, total_txs
 
@@ -145,6 +220,11 @@ class Monitor:
                 total_scanned += scanned
             except Exception as e:
                 logger.error("Unexpected error polling %s: %s", chain.name, e)
+
+        if self.config.accumulation_enabled:
+            pruned = self.accumulation_store.prune_old_transfers(self.config.accumulation_window_hours)
+            if pruned > 0:
+                logger.debug("Pruned %d expired accumulation inflow records", pruned)
 
         elapsed = time.time() - start_t
         logger.info(
