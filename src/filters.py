@@ -1,7 +1,8 @@
 ﻿STABLECOIN_SYMBOLS: frozenset = frozenset({
     "USDT", "USDC", "DAI", "BUSD", "TUSD", "FRAX", "LUSD",
     "USDP", "GUSD", "USDD", "FDUSD", "PYUSD", "USDE", "USDS",
-    "CRVUSD", "GHO", "EURC", "EURS", "USDT0", "USD₮0", "USD₮", "RLUSD"
+    "CRVUSD", "GHO", "EURC", "EURS", "USDT0", "USD₮0", "USD₮", 
+    "RLUSD", "USD1", "PAXG", "XAUT"
 })
 
 ETH_SYMBOLS: frozenset = frozenset({"ETH", "WETH"})
