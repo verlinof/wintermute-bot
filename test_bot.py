@@ -81,7 +81,8 @@ def run_diagnostics(send_ping: bool = False, send_real_alert: bool = False, send
         print(f"  [OK] Wallets loaded: {len(entities)} entity/entities ({total_addresses} address(es) total)")
         for idx, e in enumerate(entities, 1):
             addrs = e.get_addresses()
-            print(f"       {idx}. {e.label}: {len(addrs)} address(es)")
+            status_acc = "Acc: ON" if e.track_accumulation else "Acc: EXCLUDED (Seller)"
+            print(f"       {idx}. {e.label} [{status_acc}]: {len(addrs)} address(es)")
             for a in addrs:
                 print(f"          -> {a}")
     except Exception as e:

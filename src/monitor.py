@@ -96,7 +96,11 @@ class Monitor:
                     usd_value = amount * usd_price
 
                     # 6. Inflow & Accumulation Check
-                    if self.config.accumulation_enabled and tx.to_addr.lower() in entity_addrs_set:
+                    if (
+                        self.config.accumulation_enabled
+                        and entity.track_accumulation
+                        and tx.to_addr.lower() in entity_addrs_set
+                    ):
                         self.accumulation_store.record_inflow(
                             tx_hash=tx.tx_hash,
                             chain=chain.name,

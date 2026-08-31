@@ -247,3 +247,39 @@ def test_poll_chain_accumulation_milestone_progression(tmp_path):
     assert alerts3 == 1
     assert mock_accum_alert3.call_count == 1
     assert mock_accum_alert3.call_args[1]["milestone_tier"] == 1000000.0
+
+
+def test_poll_chain_skips_accumulation_for_seller_entity(tmp_path):
+    from src.accumulation import AccumulationStore
+    cfg = _make_config(
+        usd_threshold=500000.0,
+        accumulation_enabled=True,
+        accumulation_usd_threshold=500000.0,
+        accumulation_window_hours=24,
+        accumulation_min_tx_count=2,
+    )
+    chain = next(c for c in CHAINS if c.id == "ethereum")
+    # Entity with track_accumulation=False (Seller wallet)
+    seller_entity = Entity(label="Binance: Hot Wallet (jualan)", addresses=["0xseller"], track_accumulation=False)
+    dedup = DedupStore(db_path=str(tmp_path / "dedup.db"))
+    accum_store = AccumulationStore(db_path=str(tmp_path / "accum.db"))
+    monitor = Monitor(cfg, [seller_entity], dedup, accumulation_store=accum_store)
+
+    import time
+    now = int(time.time())
+
+    tx1 = _make_transfer(tx_hash="0xtx1", from_addr="0xfrom", to_addr="0xseller", token_symbol="ARB", raw_value="300000000000000000000000", block_timestamp=str(now - 1800))
+    tx2 = _make_transfer(tx_hash="0xtx2", from_addr="0xfrom", to_addr="0xseller", token_symbol="ARB", raw_value="300000000000000000000000", block_timestamp=str(now - 1200))
+
+    with patch("src.monitor.fetch_token_transfers", return_value=[tx1, tx2]), \
+         patch("src.monitor.get_token_price", return_value=1.0), \
+         patch("src.monitor.send_alert") as mock_single_alert, \
+         patch("src.monitor.send_accumulation_alert") as mock_accum_alert, \
+         patch("src.monitor.time.sleep"):
+        alerts, txs = monitor.poll_chain(chain)
+
+    # Accumulation alert should NOT be called for seller entity
+    mock_accum_alert.assert_not_called()
+    # And accumulation store should NOT have recorded any inflow for this entity
+    _, _, count = accum_store.get_accumulation_stats(chain.name, seller_entity.label, "ARB")
+    assert count == 0
