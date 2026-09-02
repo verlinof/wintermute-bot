@@ -18,6 +18,10 @@
       "addresses": ["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"]
     },
     {
+      "label": "Bybit Hot Wallet: Whale 1",
+      "addresses": ["0xc851a293ed8b8888a2e4140744973Dd23bBCBaF2"]
+    },
+    {
       "label": "Binance Hot Wallet: Wintermute (jualan)",
       "addresses": [
         "0x28C6c06298d514Db089934071355E5743bf21d60",
