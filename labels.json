@@ -1,0 +1,6 @@
+﻿{
+  "_comment": "Custom address labels. Add any known exchange deposit/hot wallet address here to show clean names in alerts.",
+  "0x28C6c06298d514Db089934071355E5743bf21d60": "Binance: Hot Wallet 20",
+  "0x3356bf1608620b78426dafb9f6c7704df344f6f2": "Binance: Deposit Address",
+  "0xf689c56b7db0248ad94943fcfd4fc68ef384d5c9": "Binance: Deposit Address 2"
+}
