@@ -33,6 +33,14 @@
     {
       "label": "Bitget Hot Wallet: Whale 1",
       "addresses": ["0x0639556F03714A74a5fEEaF5736a4A64fF70D206"]
+    },
+    {
+      "label": "Cold Wallet: Cumberland DRW",
+      "addresses": ["0x040D6D590f4deb5013CdfdD7cD0df46eC9fe0f3F"]
+    },
+    {
+      "label": "Cold Wallet: Cumberland DRW 2",
+      "addresses": ["0x091D1C972cb1648537a2Ba78eaBa371b1cE18336"]
     }
   ]
 }
